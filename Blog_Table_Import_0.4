@@ -1,0 +1,402 @@
+// ==UserScript==
+// @name        Blog Table ⭐ Import
+// @namespace        http://tampermonkey.net/
+// @version        0.4
+// @description        CSV・TSVファイルのデータを表に展開する「Ctrl+F3」
+// @author        Ameba Blog User
+// @match        https://blog.ameba.jp/ucs/entry/srventry*
+// @exclude        https://blog.ameba.jp/ucs/entry/srventrylist.do*
+// @icon        https://www.google.com/s2/favicons?sz=64&domain=ameblo.jp
+// @grant        none
+// ==/UserScript==
+
+
+
+let retry=0;
+let interval=setInterval(wait_target, 100);
+function wait_target(){
+    retry++;
+    if(retry>10){ // リトライ制限 10回 1sec
+        clearInterval(interval); }
+    let target=document.getElementById('cke_1_contents'); // 監視 target
+    if(target){
+        clearInterval(interval);
+        main(); }}
+
+
+
+function main(){
+    let task=0; // 起動1・更新3・終了0
+    let mode=0; // CSV 0・ TSV 1
+
+    let target=document.getElementById('cke_1_contents'); // 監視 target
+    let monitor=new MutationObserver( catch_key );
+    monitor.observe(target, {childList: true, attributes: true}); // ショートカット待受け開始
+
+    catch_key();
+
+    function catch_key(){
+        if(document.querySelector('.cke_wysiwyg_frame') !=null){ //「通常表示」から実行開始
+            let editor_iframe=document.querySelector('.cke_wysiwyg_frame');
+            let iframe_doc=editor_iframe.contentWindow.document;
+
+            iframe_doc.addEventListener('keydown', check_key);
+            document.addEventListener('keydown', check_key);
+
+            function check_key(event){
+                if(event.keyCode==13 && iframe_doc.hasFocus()){
+                    remove_mark(); } // 改行入力が連続マークとなるのを抑止
+
+                let gate=-1;
+                if(event.ctrlKey==true){
+                    if(event.keyCode==114){
+                        event.preventDefault(); gate=1; }
+                    if(gate==1){
+                        event.stopImmediatePropagation();
+                        do_task(); }}}
+
+            function do_task(){
+                if(task==0){
+                    task=1;
+                    table_panel();
+                    enhanced(); }
+                else{
+                    task=0;
+                    remove_t_panel();
+                    remove_mark(); }}}
+
+        before_end();
+
+    } // catch_key()
+
+
+
+    function table_panel(){
+        let panel=
+            '<div id="csv_panel">'+
+            '<span class="csv_button1 csv_sw">ファイルを読込む</span>'+
+            '<input class="file_data_input" type="file">'+
+            '<span class="csv_label">データ形式</span>'+
+            '<input type="text" class="csv_button0 csv_sw" value="　">'+
+            '<span class="csv_label">データの構成</span>'+
+            '<div class="csv_wnc"><input id="csv_col" type="number" min="1"></div>'+
+            '<div class="csv_wnr"><input id="csv_row" type="number" min="1"></div>'+
+            '　➡　'+
+            '<span class="csv_button2 csv_sw">データを表に展開する</span>'+
+
+            '<div id="csv_first">'+
+            '<span id="csv_help">？</span>'+
+            '<div class="csv_help1">'+
+            '「table表」を作成する場所を<b>「Ctrl+左Click」</b>で指定してください</div>'+
+            '</div>'+
+
+            '<style>'+
+            '#csv_panel { position: fixed; top: 15px; left: calc(50% - 490px); width: 954px; '+
+            'height: 27px; font-size: 14px; padding: 6px 12px; overflow: hidden; '+
+            'border: 1px solid #ccc; border-radius: 4px; background: #eff5f6; z-index: 10; }'+
+            '#csv_panel * { user-select: none; }'+
+            '#csv_panel .csv_sw { position: relative; margin: 0 10px 0 5px; padding: 3px 10px 1px; '+
+            'top: 0; box-sizing: border-box; border: thin solid #aaa; background: #fff; }'+
+            '#csv_panel .csv_sw.csv_button0 { width: 38px; padding: 3px 3px 1px; }'+
+            '#csv_panel .csv_sw.csv_button1 { margin: 0 15px 0 10px; }'+
+            '#csv_panel .file_data_input { display: none; }'+
+            '#csv_panel input { position: relative; margin-right: 0; padding: 2px 2px 0 0; '+
+            'height: 27px; box-sizing: border-box; border: thin solid #aaa; }'+
+
+            '.csv_wnc, .csv_wnr { position: relative; display: inline-block; margin: 0 5px; }'+
+            '.csv_wnc::after { content: "列"; }'+
+            '.csv_wnr::after { content: "行"; }'+
+            '.csv_wnc::after, .csv_wnr::after { position: absolute; top: 2px; right: 2px; '+
+            'padding: 3px 0 0; width: 17px; background: #fff; }'+
+            '#csv_col, #csv_row { width: 50px; text-align: center; }'+
+
+            '#csv_first { position: absolute; top: 0; left: 0; color: #fff; background: #2196f3; '+
+            'width: 100%; padding: 10px 0; font-size: 16px; text-align: center; }'+
+            '#csv_help { position: absolute; top: 11px; right: 25px; padding: 2px 1px 0; '+
+            'line-height: 16px; font-weight: bold; border-radius: 30px; '+
+            'color: #2196f3; background: #fff; cursor: pointer; }'+
+            '.csv_help1 { text-align: left; margin-left: 60px; }'+
+            '</style>'+
+            '</div>';
+
+        if(!document.querySelector('#csv_panel')){
+            document.body.insertAdjacentHTML('beforeend', panel); }
+
+    } // table_panel()
+
+
+
+    function enhanced(){
+        let target_r=document.getElementById('cke_1_contents'); // 監視 target
+        let monitor_r=new MutationObserver(select);
+        monitor_r.observe(target_r, {childList: true}); // ショートカット待受け開始
+
+        select();
+
+        function select(){
+            if(document.querySelector('.cke_wysiwyg_frame') !=null){ //「通常表示」から実行開始
+                remove_mark; // Html編集後のリセット
+                show_first(1);
+                let editor_iframe=document.querySelector('.cke_wysiwyg_frame');
+                let iframe_doc=editor_iframe.contentWindow.document;
+                if(iframe_doc){
+                    let style_csv_if=
+                        '<style id="style_csv_if">'+
+                        '.csv_active { box-shadow: #fff -4px 0px, #2196f3 -8px 0px !important; }'+
+                        '</style>';
+                    if(!iframe_doc.head.querySelector('#style_csv_if')){
+                        iframe_doc.head.insertAdjacentHTML('beforeend', style_csv_if); }
+
+                    let editor=iframe_doc.querySelector('.cke_editable');
+                    if(editor){
+                        editor.onclick=function(event){
+                            event.stopImmediatePropagation();
+                            if(event.ctrlKey){
+                                remove_mark();
+                                if(task==1 || task==2){
+                                    let elm=iframe_doc.elementFromPoint(event.clientX, event.clientY);
+                                    if(elm.tagName=='P' || elm.tagName=='DIV'){
+                                        elm.classList.add('csv_active');
+                                        task=2;
+                                        show_first(0);
+                                        edit_table(task, elm); } //「表作成」
+                                    else{
+                                        task=1;
+                                        edit_table(task, 0); } // 操作のリセット
+                                }}}}}}} // select()
+
+    } // enhanced()
+
+
+
+    function edit_table(task, elm){
+        let result; // 最終的な二次元配列
+
+        let editor_iframe=document.querySelector('.cke_wysiwyg_frame');
+        let iframe_doc=editor_iframe.contentWindow.document;
+        let csv_col=document.querySelector('#csv_col');
+        let csv_row=document.querySelector('#csv_row');
+        let csv_button0=document.querySelector('.csv_button0');
+        let csv_button2=document.querySelector('.csv_button2');
+        let thead_style='padding-top: 0; height: 0; border: none; background: none;';
+
+
+        if(task==1){
+            csv_button0.value='';
+            csv_col.value='';
+            csv_row.value='';
+            csv_button2.onclick=function(event){
+                event.preventDefault(); }}
+
+        if(task==2){
+            csv_reader();
+
+            csv_button2.onclick=function(event){
+                event.preventDefault();
+                if(result){
+                    createTable(result, elm); }
+                else{
+                    alert("データファイルを読み込んでください"); }}}
+
+
+
+        function csv_reader(){
+            let csv_button1=document.querySelector('.csv_button1');
+            let file_data_input=document.querySelector('.file_data_input');
+            disp_result(result);
+
+            csv_button1.onclick=function(){
+                file_data_input.click(); }
+
+            file_data_input.addEventListener('click', (event)=>{
+                event.target.value=''; }); // 同ファイルを2回以上読める様にする
+
+            file_data_input.addEventListener('change', function(){
+                if(!(file_data_input.value)){ return; } // ファイルが選択されない場合
+                let file_list=file_data_input.files;
+                if(!file_list){ return; }// ファイルリストが選択されない場合
+                let file=file_list[0];
+                if(!file){ return; }// ファイルが無い場合
+                else{
+                    if(!file.name.endsWith('.csv') && !file.name.endsWith('.tsv')){
+                        alert("「CSV形式」「TSV形式」のファイルのみに対応します");
+                        return; }
+                    else{
+                        if(file.name.endsWith('.csv')){
+                            mode=0;
+                            csv_button0.value='CSV'; }
+                        else if(file.name.endsWith('.tsv')){
+                            mode=1;
+                            csv_button0.value='TSV'; }
+
+                        let file_reader=new FileReader();
+                        file_reader.readAsText(file);
+                        file_reader.onload=function(){
+                            let file_data=file_reader.result;
+                            convert_array(file_data);
+                            disp_result(result); }}} // CSV・TSVデータを読込み
+            });
+
+
+            function convert_array(str){
+                result=[];
+                let tmp=str.split('\n'); // 改行を区切り文字として行の配列を生成
+                for(let i=0;i<tmp.length;++i){ // 行からカンマ区切りの文字列から配列を生成
+                    if(mode==0){
+                        result[i]=tmp[i].split(','); }
+                    else if(mode==1){
+                        result[i]=tmp[i].split('\t'); }}}
+
+
+            function disp_result(result){
+                if(result){
+                    csv_row.value=result.length;
+                    csv_col.value=result[0].length; }
+                else{
+                    csv_row.value='';
+                    csv_col.value='';
+                    csv_button0.value=''; }}
+
+        } // csv_reader()
+
+
+
+        function createTable(result, elm){
+            let n_table=iframe_doc.createElement("table");
+            let rows=[];
+            for(let i=0; i<result.length; i++){
+                rows.push(n_table.insertRow(-1)); // 行の追加
+                for(let j=0; j<result[0].length; j++){
+                    let cell=rows[i].insertCell(-1);
+                    cell.textContent=result[i][j]; }} // データの書込み
+
+            let th_tr=n_table.createTHead().insertRow();
+            th_tr.style.background='none';
+            th_tr.style.lineHeight='0';
+            for(let j=0; j<result[0].length; j++){
+                let add_td=iframe_doc.createElement('td');
+                add_td.setAttribute('style', thead_style);
+                th_tr.appendChild(add_td); } // Headerの追加
+
+            let table_id=new_table_id();
+            n_table.setAttribute('id', table_id);
+
+            let scroll_container=iframe_doc.createElement('div');
+            scroll_container.setAttribute('style', 'overflow-x: auto');
+
+            elm.parentNode.insertBefore(scroll_container, elm);
+            scroll_container.appendChild(n_table);
+
+            let cn_table=iframe_doc.querySelector('#'+ table_id);
+            let t_style='<style class="'+ table_id +'">'+ set_css(table_id, 'max-content') +'</style>';
+            if(!iframe_doc.querySelector('.'+table_id)){
+                cn_table.insertAdjacentHTML('beforeBegin', t_style); }
+
+
+            let t_width; // 生成したtable幅の指定値
+            let t_width_g=getComputedStyle(cn_table).width; //「width: max-content」の実測値
+            if(t_width_g){
+                t_width=Math.ceil((t_width_g.replace('px', ''))); // 切り上げ
+                if(t_width>1200){
+                    t_width=1200; }}
+            else{
+                t_width=580; }
+
+            let cn_style=iframe_doc.querySelector('style.'+ table_id);
+            if(cn_style){
+                cn_style.textContent=set_css(table_id, t_width+'px'); }
+
+
+            remove_mark(); // 選択表示を整形
+            show_first(1);
+            cn_table.parentNode.classList.add('csv_active');
+
+        } // createTable()
+
+    } // edit_table()
+
+
+
+    function set_css(t_id, t_width_str){
+        let css=
+            '#'+ t_id +' { '+
+            'width: '+ t_width_str +'; '+
+            'margin: 0 auto; '+
+            'table-layout: auto; '+
+            'border-collapse: collapse; '+
+            'border-spacing: 0px; '+
+            'border: 0px solid #aaa; '+
+            'font: 16px Meiryo; '+
+            'word-break: break-all; } '+
+            '#'+ t_id +' tbody { background-color: #ffffff; } '+
+            '#'+ t_id +' tr:first-child { background-color: #ffffff; } '+
+            '#'+ t_id +' tr:not(:first-child) td:first-child { background-color: #ffffff; } '+
+            '#'+ t_id +' td { border: 1px solid #aaa; padding: 0.2em 0.6em 0; height: 1.5em; }';
+        return css; }
+
+
+
+    function new_table_id(){ // 複数tableを生成時に異なるidを付ける
+        if(document.querySelector('.cke_wysiwyg_frame') !=null){
+            let editor_iframe=document.querySelector('.cke_wysiwyg_frame');
+            let iframe_doc=editor_iframe.contentWindow.document;
+            for(let k=0; k<100; k++){
+                let table_id='ambt'+k;
+                if(iframe_doc.getElementById(table_id)==null){
+                    return table_id; }}}}
+
+
+
+    function remove_t_panel(){
+        document.querySelector('#csv_panel').remove(); }
+
+
+
+    function remove_mark(){
+        if(document.querySelector('.cke_wysiwyg_frame') !=null){ //「通常表示」から実行開始
+            let editor_iframe=document.querySelector('.cke_wysiwyg_frame');
+            let iframe_doc=editor_iframe.contentWindow.document;
+
+            let item=iframe_doc.querySelectorAll('.csv_active');
+            for(let k=0; k<item.length; k++){
+                item[k].classList.remove('csv_active'); }}}
+
+
+
+    function show_first(n){
+        let first=document.querySelector('#csv_first');
+        let csv_help1=document.querySelector('.csv_help1');
+        if(first){
+            if(n==0){
+                first.style.display='none'; }
+            else{
+                first.style.display='block';
+                csv_help1.style.display='block'; }}
+
+        let csv_help=document.querySelector('#csv_help');
+        if(csv_help){
+            csv_help.onclick=function(){
+                let url='https://ameblo.jp/personwritep/entry-12842673232.html';
+                window.open(url, target="_blank"); }}}
+
+
+
+    function before_end(){
+        let submitButton=document.querySelectorAll('.js-submitButton');
+        submitButton[0].addEventListener('mousedown', all_clear, false);
+        submitButton[1].addEventListener('mousedown', all_clear, false);
+
+        function all_clear(){
+            let editor_iframe=document.querySelector('.cke_wysiwyg_frame');
+            if(!editor_iframe){ //「HTML表示」編集画面の場合
+                alert("⛔　Blog Table が処理を終了していません\n\n"+
+                      "　　 通常表示画面に戻り 編集を終了してください");
+                event.stopImmediatePropagation();
+                event.preventDefault(); }
+            if(editor_iframe){ //「通常表示」編集画面の場合
+                remove_mark(); } // table編集のマークを削除
+        }} // before_end(
+
+} // main()
+
+
