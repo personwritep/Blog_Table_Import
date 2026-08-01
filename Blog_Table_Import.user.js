@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Blog Table ⭐ Import
 // @namespace        http://tampermonkey.net/
-// @version        0.4
+// @version        0.5
 // @description        CSV・TSVファイルのデータを表に展開する「Ctrl+F3」
 // @author        Ameba Blog User
 // @match        https://blog.ameba.jp/ucs/entry/srventry*
@@ -85,11 +85,12 @@ function main(){
             '<div class="csv_wnr"><input id="csv_row" type="number" min="1"></div>'+
             '　➡　'+
             '<span class="csv_button2 csv_sw">データを表に展開する</span>'+
+            '<span class="csv_help">？</span>'+
 
             '<div id="csv_first">'+
-            '<span id="csv_help">？</span>'+
-            '<div class="csv_help1">'+
+            '<div class="announce">'+
             '「table表」を作成する場所を<b>「Ctrl+左Click」</b>で指定してください</div>'+
+            '<span class="csv_help">？</span>'+
             '</div>'+
 
             '<style>'+
@@ -114,10 +115,10 @@ function main(){
 
             '#csv_first { position: absolute; top: 0; left: 0; color: #fff; background: #2196f3; '+
             'width: 100%; padding: 10px 0; font-size: 16px; text-align: center; }'+
-            '#csv_help { position: absolute; top: 11px; right: 25px; padding: 2px 1px 0; '+
-            'line-height: 16px; font-weight: bold; border-radius: 30px; '+
+            '.csv_help { position: absolute; top: 11px; right: 25px; padding: 3px 1px 0; '+
+            'font: bold 18px/16px Meiryo; border: 1px solid #2196f3; border-radius: 30px; '+
             'color: #2196f3; background: #fff; cursor: pointer; }'+
-            '.csv_help1 { text-align: left; margin-left: 60px; }'+
+            '.announce { text-align: left; margin-left: 60px; }'+
             '</style>'+
             '</div>';
 
@@ -180,7 +181,6 @@ function main(){
         let csv_row=document.querySelector('#csv_row');
         let csv_button0=document.querySelector('.csv_button0');
         let csv_button2=document.querySelector('.csv_button2');
-        let thead_style='padding-top: 0; height: 0; border: none; background: none;';
 
 
         if(task==1){
@@ -273,11 +273,8 @@ function main(){
                     cell.textContent=result[i][j]; }} // データの書込み
 
             let th_tr=n_table.createTHead().insertRow();
-            th_tr.style.background='none';
-            th_tr.style.lineHeight='0';
             for(let j=0; j<result[0].length; j++){
                 let add_td=iframe_doc.createElement('td');
-                add_td.setAttribute('style', thead_style);
                 th_tr.appendChild(add_td); } // Headerの追加
 
             let table_id=new_table_id();
@@ -333,7 +330,11 @@ function main(){
             '#'+ t_id +' tbody { background-color: #ffffff; } '+
             '#'+ t_id +' tr:first-child { background-color: #ffffff; } '+
             '#'+ t_id +' tr:not(:first-child) td:first-child { background-color: #ffffff; } '+
-            '#'+ t_id +' td { border: 1px solid #aaa; padding: 0.2em 0.6em 0; height: 1.5em; }';
+            '#'+ t_id +' td { border: 1px solid #aaa; padding: 0.2em 0.6em 0; height: 1.5em; } '+
+            '#'+ t_id +' thead tr:first-child { background: none; line-height: 0; } '+
+            '#'+ t_id +' thead td { padding-top: 0; height: 0; border: none; } '+
+            '#'+ t_id +' .jh { display: none; }';
+
         return css; }
 
 
@@ -361,25 +362,28 @@ function main(){
 
             let item=iframe_doc.querySelectorAll('.csv_active');
             for(let k=0; k<item.length; k++){
-                item[k].classList.remove('csv_active'); }}}
+                item[k].classList.remove('csv_active');
+                if(item[k].classList.length===0){
+                    item[k].removeAttribute('class'); }}}}
 
 
 
     function show_first(n){
         let first=document.querySelector('#csv_first');
-        let csv_help1=document.querySelector('.csv_help1');
         if(first){
             if(n==0){
                 first.style.display='none'; }
             else{
-                first.style.display='block';
-                csv_help1.style.display='block'; }}
+                first.style.display='block'; }}
 
-        let csv_help=document.querySelector('#csv_help');
-        if(csv_help){
-            csv_help.onclick=function(){
-                let url='https://ameblo.jp/personwritep/entry-12842673232.html';
-                window.open(url, target="_blank"); }}}
+        let csv_help=document.querySelectorAll('.csv_help');
+        if(csv_help.length==2){
+            csv_help.forEach(button=>{
+                button.onclick=function(){
+                    let url='https://ameblo.jp/personwritep/entry-12842673232.html';
+                    window.open(url, target="_blank"); }}); }
+
+    } // show_first()
 
 
 
@@ -400,4 +404,3 @@ function main(){
         }} // before_end(
 
 } // main()
-
