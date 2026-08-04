@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Blog Table ⭐ Import
 // @namespace        http://tampermonkey.net/
-// @version        0.5
+// @version        0.6
 // @description        CSV・TSVファイルのデータを表に展開する「Ctrl+F3」
 // @author        Ameba Blog User
 // @match        https://blog.ameba.jp/ucs/entry/srventry*
@@ -232,12 +232,22 @@ function main(){
                             csv_button0.value='TSV'; }
 
                         let file_reader=new FileReader();
-                        file_reader.readAsText(file);
+                        file_reader.readAsArrayBuffer(file);
+
                         file_reader.onload=function(){
                             let file_data=file_reader.result;
+
+                            try{ // UTF-8として厳密にデコードを試す
+                                let decoder=new TextDecoder('utf-8', { fatal: true });
+                                file_data=decoder.decode(file_data); }
+                            catch(e){ // エラーが発生した場合はShift_JISとみなす
+                                let decoder=new TextDecoder('shift_jis');
+                                file_data=decoder.decode(file_data); }
+
                             convert_array(file_data);
                             disp_result(result); }}} // CSV・TSVデータを読込み
-            });
+
+            }); // file_data_input.addEventListener()
 
 
             function convert_array(str){
