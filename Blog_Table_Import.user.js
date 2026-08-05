@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Blog Table ⭐ Import
 // @namespace        http://tampermonkey.net/
-// @version        0.6
+// @version        0.7
 // @description        CSV・TSVファイルのデータを表に展開する「Ctrl+F3」
 // @author        Ameba Blog User
 // @match        https://blog.ameba.jp/ucs/entry/srventry*
@@ -250,14 +250,43 @@ function main(){
             }); // file_data_input.addEventListener()
 
 
+
             function convert_array(str){
                 result=[];
-                let tmp=str.split('\n'); // 改行を区切り文字として行の配列を生成
-                for(let i=0;i<tmp.length;++i){ // 行からカンマ区切りの文字列から配列を生成
-                    if(mode==0){
-                        result[i]=tmp[i].split(','); }
-                    else if(mode==1){
-                        result[i]=tmp[i].split('\t'); }}}
+                let tmp=str.split(/\r?\n/).filter(line => line.trim()!=="");
+
+                if(mode==0){
+                    let header=tmp[0].split(',');
+                    let first_row=tmp[1].split(',');
+
+                    if(header.length<first_row.length){
+                        while(header.length<first_row.length){
+                            header.push(""); }}
+                    if(header.length>first_row.length){
+                        while(header.length>first_row.length){
+                            header.pop; }}
+                    result[0]=header;
+
+                    for(let i=1; i<tmp.length;++i){ // 行からカンマ区切りの文字列から配列を生成
+                        result[i]=tmp[i].split(','); }} // mode==0
+
+                else if(mode==1){
+                    let header=tmp[0].split('\t');
+                    let first_row=tmp[1].split('\t');
+
+                    if(header.length<first_row.length){
+                        while(header.length<first_row.length){
+                            header.push(""); }}
+                    if(header.length>first_row.length){
+                        while(header.length>first_row.length){
+                            header.pop; }}
+                    result[0]=header;
+
+                    for(let i=1; i<tmp.length;++i){ // 行からタブ区切りの文字列から配列を生成
+                        result[i]=tmp[i].split('\t'); }} // mode==1
+
+            } // convert_array()
+
 
 
             function disp_result(result){
