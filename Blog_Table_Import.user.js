@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name        Blog Table ⭐ Import
 // @namespace        http://tampermonkey.net/
-// @version        0.7
+// @version        0.8
 // @description        CSV・TSVファイルのデータを表に展開する「Ctrl+F3」
 // @author        Ameba Blog User
-// @match        https://blog.ameba.jp/ucs/entry/srventry*
-// @exclude        https://blog.ameba.jp/ucs/entry/srventrylist.do*
+// @match        https://blog.ameba.jp/ucs/entry/srventryinsertinput.do*
+// @match        https://blog.ameba.jp/ucs/entry/srventryupdateinput.do*
 // @icon        https://www.google.com/s2/favicons?sz=64&domain=ameblo.jp
 // @grant        none
 // @updateURL        https://github.com/personwritep/Blog_Table_Import/raw/main/Blog_Table_Import.user.js
